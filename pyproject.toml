@@ -1,6 +1,6 @@
 [project]
 name = "mcp-backpack"
-version = "0.1.0"
+version = "0.1.1"
 description = "A persistent, portable memory tool for Claude Code and MCP clients."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -11,6 +11,11 @@ dependencies = [
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/primerpy/mcp-backpack"
+"Repository" = "https://github.com/primerpy/mcp-backpack"
+"Issues" = "https://github.com/primerpy/mcp-backpack/issues"
 
 [project.scripts]
 # This creates the command "mcp-backpack" that users will run
