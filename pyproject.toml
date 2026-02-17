@@ -9,7 +9,7 @@ dependencies = [
     "mcp>=1.0.0",
 ]
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "PrimerPy", email = "primerpy3@gmail.com" }
 ]
 
 [project.urls]
@@ -24,3 +24,8 @@ mcp-backpack = "mcp_backpack.server:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

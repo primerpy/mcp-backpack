@@ -6,13 +6,32 @@ from mcp.server.fastmcp import FastMCP
 # Initialize the MCP Server
 mcp = FastMCP("Backpack")
 
+PROJECT_ROOT_MARKERS = (".git", "pyproject.toml", "package.json", "Cargo.toml", "go.mod")
+
+def _find_project_root(start):
+    """Walk up from start looking for a project root marker."""
+    current = os.path.abspath(start)
+    while True:
+        for marker in PROJECT_ROOT_MARKERS:
+            if os.path.exists(os.path.join(current, marker)):
+                return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            return None
+        current = parent
+
 def get_project_paths():
     """
-    Determines the project root and memory location based on where the command is run.
+    Determines the project root and memory location.
+    Priority: BACKPACK_DIR env var > project root detection > cwd fallback.
     """
-    cwd = os.getcwd()
-    memory_dir = os.path.join(cwd, ".backpack_memory")
-    return cwd, memory_dir
+    override = os.environ.get("BACKPACK_DIR")
+    if override:
+        root = os.path.abspath(override)
+    else:
+        root = _find_project_root(os.getcwd()) or os.getcwd()
+    memory_dir = os.path.join(root, ".backpack_memory")
+    return root, memory_dir
 
 @mcp.tool()
 def put_in_backpack(key: str, value: str):
@@ -30,20 +49,30 @@ def check_backpack(key: str):
     with Cache(memory_dir) as cache:
         value = cache.get(key)
     
-    if value:
+    if value is not None:
         return f"Found '{key}':\n{value}"
     return f"Nothing found in backpack matching '{key}'."
 
 @mcp.tool()
 def rummage_backpack(query: str):
-    """Search for keys containing the query string."""
+    """Search for keys and values containing the query string."""
     _, memory_dir = get_project_paths()
-    results = []
+    key_matches = []
+    value_matches = []
     with Cache(memory_dir) as cache:
         for k in cache.iterkeys():
             if query.lower() in str(k).lower():
-                results.append(k)
-    return f"Found keys: {results}" if results else "Found nothing."
+                key_matches.append(k)
+            elif query.lower() in str(cache[k]).lower():
+                value_matches.append(k)
+    if not key_matches and not value_matches:
+        return "Found nothing."
+    parts = []
+    if key_matches:
+        parts.append(f"Key matches: {key_matches}")
+    if value_matches:
+        parts.append(f"Value matches: {value_matches}")
+    return "\n".join(parts)
 
 @mcp.tool()
 def list_contents():
@@ -61,7 +90,7 @@ def toss_out(key: str):
         if key in cache:
             del cache[key]
             return f"Threw away '{key}'."
-    return "Item not found."
+        return "Item not found."
 
 @mcp.tool()
 def pack_for_travel():
