@@ -1,0 +1,3 @@
+{
+  "project-notes": "MCP Backpack - a persistent key-value memory MCP server. Python 3.14, uses diskcache + FastMCP. Single module at src/mcp_backpack/server.py. Run with `uv run mcp-backpack`. Storage lives in .backpack_memory/ per project. Export/import via backpack.json for git portability."
+}

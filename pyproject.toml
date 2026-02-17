@@ -1,0 +1,21 @@
+[project]
+name = "mcp-backpack"
+version = "0.1.0"
+description = "A persistent, portable memory tool for Claude Code and MCP clients."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "diskcache>=5.6.3",
+    "mcp>=1.0.0",
+]
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+
+[project.scripts]
+# This creates the command "mcp-backpack" that users will run
+mcp-backpack = "mcp_backpack.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
