@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__backpack__put_in_backpack"
-    ]
-  }
-}
