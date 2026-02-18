@@ -75,7 +75,7 @@ The server exposes the following tools to the LLM:
 | :--- | :--- |
 | `put_in_backpack` | Saves a key-value pair to the local `.backpack_memory` database. |
 | `check_backpack` | Retrieves a specific value by key. |
-| `rummage_backpack` | fuzzy searches for keys containing a specific string. |
+| `rummage_backpack` | Searches for keys and values containing a specific string. |
 | `list_contents` | Lists all keys currently stored in the project's backpack. |
 | `toss_out` | Permanently deletes a key from memory. |
 | `pack_for_travel` | Exports the binary database to a human-readable `backpack.json`. |
