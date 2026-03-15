@@ -30,3 +30,17 @@ Single-module MCP server in `src/mcp_backpack/server.py`. All tool definitions l
 **Portability**: `pack_for_travel` exports to `backpack.json` (committable), `unpack_from_travel` imports it back into diskcache.
 
 **Entry point**: `mcp-backpack` CLI command defined in `pyproject.toml` → `mcp_backpack.server:main` → `mcp.run()`.
+
+## Git Commit Rules
+
+- PrimerPy is the sole developer and author of all commits.
+
+**Auto-compact prep**: `prepare_for_compaction` and `restore_session` tools handle context survival. Internal keys prefixed with `_config:` and `_session:` are excluded from user-facing listings.
+
+## Auto-Compact Behavior
+
+When MCP Backpack is connected, Claude should follow these rules automatically:
+
+1. **Session start**: Call `restore_session` to load the latest recap and pinned keys.
+2. **Before compaction**: When context is running long or compaction is imminent, call `prepare_for_compaction` with a summary of: what was worked on, key decisions, current state, and next steps.
+3. **Pinned keys**: Important persistent context (architecture notes, project conventions, active task info) should be pinned via `pin_key` so they survive across sessions automatically.

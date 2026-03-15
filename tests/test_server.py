@@ -167,6 +167,170 @@ class TestProjectRootDetection:
         assert memory_dir == os.path.join(str(custom_dir), ".backpack_memory")
 
 
+class TestPinKey:
+    def test_pin_new_key(self):
+        result = pin_key("project-notes")
+        assert "Pinned 'project-notes'" in result
+
+    def test_pin_duplicate(self):
+        pin_key("project-notes")
+        result = pin_key("project-notes")
+        assert "already pinned" in result
+
+    def test_unpin_existing(self):
+        pin_key("project-notes")
+        result = unpin_key("project-notes")
+        assert "Unpinned 'project-notes'" in result
+
+    def test_unpin_missing(self):
+        result = unpin_key("ghost")
+        assert "not pinned" in result
+
+    def test_pin_multiple(self):
+        pin_key("a")
+        pin_key("b")
+        result = pin_key("c")
+        assert "a" in result
+        assert "b" in result
+        assert "c" in result
+
+
+class TestPrepareForCompaction:
+    def test_basic_recap(self):
+        result = prepare_for_compaction("Working on auth refactor. Next: add tests.")
+        assert "Session recap saved" in result
+        assert "0 pinned key(s)" in result
+
+    def test_recap_with_pinned_keys(self):
+        put_in_backpack("arch", "JWT-based auth")
+        pin_key("arch")
+        result = prepare_for_compaction("Refactoring auth module.")
+        assert "1 pinned key(s)" in result
+
+    def test_recap_overwrites_previous(self):
+        prepare_for_compaction("First recap")
+        prepare_for_compaction("Second recap")
+        result = restore_session()
+        assert "Second recap" in result
+        assert "First recap" not in result
+
+
+class TestRestoreSession:
+    def test_fresh_start(self):
+        result = restore_session()
+        assert "Fresh start" in result
+
+    def test_restore_with_recap(self):
+        prepare_for_compaction("Fixed 3 bugs, next: deploy")
+        result = restore_session()
+        assert "Session Recap" in result
+        assert "Fixed 3 bugs" in result
+
+    def test_restore_with_pinned_keys(self):
+        put_in_backpack("arch", "microservices")
+        put_in_backpack("task", "deploy v2")
+        pin_key("arch")
+        pin_key("task")
+        prepare_for_compaction("Working on deploy")
+        result = restore_session()
+        assert "microservices" in result
+        assert "deploy v2" in result
+
+    def test_restore_shows_other_keys(self):
+        put_in_backpack("notes", "some notes")
+        prepare_for_compaction("Quick session")
+        result = restore_session()
+        assert "Other keys" in result
+        assert "notes" in result
+
+    def test_restore_pinned_only_no_recap(self):
+        put_in_backpack("arch", "monolith")
+        pin_key("arch")
+        result = restore_session()
+        assert "No session recap found" in result
+        assert "monolith" in result
+
+    def test_internal_keys_hidden_from_other_keys(self):
+        put_in_backpack("visible", "yes")
+        pin_key("visible")
+        prepare_for_compaction("test")
+        result = restore_session()
+        # _config: and _session: keys should not appear in "Other keys"
+        assert "_config:" not in result.split("Other keys")[-1] if "Other keys" in result else True
+
+
+class TestTTL:
+    def test_put_with_ttl(self):
+        result = put_in_backpack("bug:123", "some bug", ttl="7d")
+        assert "expires in 7d" in result
+
+    def test_put_without_ttl(self):
+        result = put_in_backpack("notes", "persistent")
+        assert "expires" not in result
+
+    def test_expired_key_removed_on_check(self, monkeypatch):
+        put_in_backpack("temp", "data", ttl="1m")
+        # Fast-forward time so the key is expired
+        from datetime import datetime, timezone, timedelta
+        future = datetime.now(timezone.utc) + timedelta(minutes=2)
+        monkeypatch.setattr(server, "datetime", type("MockDT", (), {
+            "now": staticmethod(lambda tz=None: future),
+            "fromisoformat": datetime.fromisoformat,
+        }))
+        result = check_backpack("temp")
+        assert "expired" in result
+
+    def test_unexpired_key_still_accessible(self):
+        put_in_backpack("temp", "still here", ttl="7d")
+        result = check_backpack("temp")
+        assert "still here" in result
+
+    def test_invalid_ttl_format(self):
+        try:
+            put_in_backpack("bad", "data", ttl="forever")
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            assert "Invalid TTL" in str(e)
+
+    def test_ttl_survives_pack_unpack(self, tmp_project):
+        put_in_backpack("temp", "data", ttl="7d")
+        pack_for_travel()
+        # Check TTL metadata is in the JSON
+        json_path = os.path.join(str(tmp_project), "backpack.json")
+        with open(json_path) as f:
+            data = json.load(f)
+        assert "_config:ttl" in data
+
+
+class TestBackpackCleanup:
+    def test_cleanup_no_expired(self):
+        put_in_backpack("perm", "forever")
+        result = backpack_cleanup()
+        assert "No expired keys" in result
+        assert "1 active" in result
+
+    def test_cleanup_removes_expired(self, monkeypatch):
+        put_in_backpack("temp", "gone soon", ttl="1m")
+        put_in_backpack("perm", "forever")
+        # Fast-forward time
+        from datetime import datetime, timezone, timedelta
+        future = datetime.now(timezone.utc) + timedelta(minutes=2)
+        monkeypatch.setattr(server, "datetime", type("MockDT", (), {
+            "now": staticmethod(lambda tz=None: future),
+            "fromisoformat": datetime.fromisoformat,
+        }))
+        result = backpack_cleanup()
+        assert "Removed 1 expired" in result
+        assert "temp" in result
+
+
+class TestSyncBackpack:
+    def test_sync_no_git_repo(self, tmp_project):
+        """Sync should gracefully fail if not in a git repo."""
+        result = sync_backpack()
+        assert "Not a git repository" in result
+
+
 # Import tool functions directly for cleaner test calls
 from mcp_backpack.server import (
     put_in_backpack,
@@ -176,4 +340,10 @@ from mcp_backpack.server import (
     toss_out,
     pack_for_travel,
     unpack_from_travel,
+    pin_key,
+    unpin_key,
+    prepare_for_compaction,
+    restore_session,
+    backpack_cleanup,
+    sync_backpack,
 )
